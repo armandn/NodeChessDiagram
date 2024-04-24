@@ -1,0 +1,21 @@
+{
+  "name": "fen-diagram",
+  "version": "1.0.0",
+  "description": "Generates chess diagrams in PNG format based on FEN strings",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chess",
+    "diagram",
+    "fen"
+  ],
+  "author": "Armand Niculescu",
+  "license": "ISC",
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.52",
+    "express": "^4.19.2"
+  }
+}
