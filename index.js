@@ -5,7 +5,7 @@ import {createCanvas, GlobalFonts} from '@napi-rs/canvas';
 
 const app = express();
 app.listen(3000);
-app.use('/diagram', async (req, res)=>{
+app.use('/diagram', (req, res)=>{
 
     const fen    = req.query.fen,
           rev    = req.query.rev    == '1',
@@ -19,20 +19,8 @@ app.use('/diagram', async (req, res)=>{
     if (isNaN(size) || (size < 0) || (size > 2000))
         return res.status(400).send('Size should be a positive integer');
 
-    const rPath  = getRootPath(),
-          fPath1 = path.join(rPath, 'public', 'casefont.ttf'),
-          fPath2 = path.join(rPath, 'public', 'roboto.ttf'),
-          canvas = createCanvas(size, size),
-          sqSize = size/8,
-          ctx    = canvas.getContext('2d');
-
-    GlobalFonts.registerFromPath(fPath1, 'Chess');
-    GlobalFonts.registerFromPath(fPath2, 'Board');
-    drawBoard(ctx, rev, sqSize);
-    drawPieces(ctx, fen, rev, sqSize);
-
-    const buffer = canvas.toBuffer('image/png');
-
+	const buffer = draw(fen, rev, size);
+ 
     res.writeHead(200, {
         'Content-Type': 'image/png',
         'Content-Length': buffer.length,
@@ -42,11 +30,25 @@ app.use('/diagram', async (req, res)=>{
 });
 
 /**
- * Get project's root path (when modules are used).
- * @return {string}
+ * Create the canvas, draw the board and pieces, then convert to PNG.
+ * @param {string}  fen  FEN string 
+ * @param {boolean} rev  if true, draw the board reversed 
+ * @param {number}  size board size in pixels 
+ * @return {buffer} buffer containing the PNG
  */
-function getRootPath() {
-    return path.dirname(fileURLToPath(import.meta.url));
+function draw(fen, rev, size) {
+	const fPath1 = path.join('public', 'casefont.ttf'),
+          fPath2 = path.join('public', 'roboto.ttf'),
+          canvas = createCanvas(size, size),
+          sqSize = size/8,
+          ctx    = canvas.getContext('2d');
+
+    GlobalFonts.registerFromPath(fPath1, 'Chess');
+    GlobalFonts.registerFromPath(fPath2, 'Board');
+    drawBoard(ctx, rev, sqSize);
+    drawPieces(ctx, fen, rev, sqSize);
+
+    return canvas.toBuffer('image/png');
 }
 
 /**
@@ -104,13 +106,7 @@ function drawBoard(ctx, rev, sqSize) {
 	      fontSize   = Math.floor(sqSize/4);
 
 	for (let i=0; i<64; i++) {
-		let col = i % 8,
-		    row = (i - col) / 8;
-
-		if (rev) {
-			col = 7 - col;
-			row = 7 - row;
-		}
+		const [row, col] = sqToCoords(i, rev);
 
 		ctx.fillStyle = ((row + col) % 2 === 1) ? darkColor : liteColor;
 		ctx.fillRect(col*sqSize, row*sqSize, sqSize, sqSize);
@@ -147,19 +143,14 @@ function drawPieces(ctx, fen, rev, sqSize) {
 		if (p == ' ')
 			continue;
 
-		ctx.fillStyle   = (p == p.toUpperCase()) ? '#fff' : '#000';
-		ctx.strokeStyle = (p == p.toLowerCase()) ? '#fff' : '#000';
+		const isWhite = p == p.toUpperCase();
+
+		ctx.fillStyle   =  isWhite ? '#fff' : '#000';
+		ctx.strokeStyle = !isWhite ? '#fff' : '#000';
 		ctx.lineWidth   = 2;
 
-		let col = i % 8,
-		    row = (i - col) / 8;
-
-		if (rev) {
-			col = 7 - col;
-			row = 7 - row;
-		}
-
-		const s = pieceToChar(p),
+		const [row, col] = sqToCoords(i, rev),
+		      s = pieceToChar(p),
 			  x = col * sqSize + 2,
 			  y = row * sqSize + sqSize/6;
 
@@ -183,4 +174,22 @@ function pieceToChar(p) {
         case 'k': return 'l';
         default: return ' ';
     }
+}
+
+/**
+ * Convert a square number to row/column.
+ * @param {number}  i   square number
+ * @param {boolean} rev reverse?
+ * @return [number, number] row and column
+ */
+function sqToCoords(i, rev) {
+	let col = i % 8,
+	    row = (i - col) / 8;
+
+	if (rev) {
+		col = 7 - col;
+		row = 7 - row;
+	}
+
+	return [row, col]
 }
